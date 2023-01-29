@@ -3,7 +3,9 @@ package com.hampstudios.toolchain
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Graphics
+import java.awt.Point
 import javax.swing.JFrame
+import kotlin.math.tan
 
 class HexagridEditor : JFrame() {
 
@@ -31,9 +33,6 @@ class HexagridEditor : JFrame() {
         val xMax = windowWidth - (boundingBoxPadding * 2)
         val yMax = windowHeight - (boundingBoxPadding * 2)
 
-        val nonOffsetRowPattern = listOf(true, true, false)
-        val offsetRowPattern = listOf(true, false, true)
-
         g?.let {
             // Bounding box
             it.color = Color.WHITE
@@ -41,10 +40,9 @@ class HexagridEditor : JFrame() {
 
             // Dots
             it.color = Color.CYAN
-            var curX = xMin + gridPadding
+            var curX = xMin + (gridPadding * 1.5).toInt()
             var curY = yMin + gridPadding
             var offsetRow = false
-            var rowDrawMaskIndex = 0
 
             while (curY <= yMax) {
 
@@ -55,31 +53,41 @@ class HexagridEditor : JFrame() {
                 }
 
                 while (curX <= xMax) {
-                    if (!offsetRow) {
-                        if (nonOffsetRowPattern[rowDrawMaskIndex]) {
-                            it.drawOval(curX - 2 + rowOffset, curY - 2, 4, 4)
-                        }
-                        rowDrawMaskIndex = (rowDrawMaskIndex + 1) % nonOffsetRowPattern.size
-                    } else {
-                        if (offsetRowPattern[rowDrawMaskIndex]) {
-                            it.drawOval(curX - 2 + rowOffset, curY - 2, 4, 4)
-                        }
-                        rowDrawMaskIndex = (rowDrawMaskIndex + 1) % offsetRowPattern.size
-                    }
+                    it.drawOval(curX - 2 + rowOffset, curY - 2, 4, 4)
+                    it.drawHexagonAtWithRadius(curX + rowOffset, curY, gridPadding)
                     curX += gridPadding // * (if (offsetRow) 2 else 1)
                 }
 
-                // 43.3 / 50 is a rough approximation of the proportion of
-                // the height component of a hexagon to the width component
-                curY += (gridPadding * (43.3 / 50)).toInt()
-                curX = xMin + gridPadding
+                // TODO do not use this approximation
+                curY += ((gridPadding / 2.0) * tan(Math.PI / 6)).toInt() * 3 - 2
+                curX = xMin + (gridPadding * 1.5).toInt()
                 offsetRow = !offsetRow
             }
-
-            println(it.clipBounds)
         }
     }
 
+}
+
+private fun Graphics.drawHexagonAtWithRadius(x: Int, y: Int, width: Int) {
+
+
+    val height = (width / 2.0) * tan(Math.PI / 6)
+
+    val p0 = Point(x, y + (width / 2.0).toInt())
+    val p1 = Point(x + (width / 2.0).toInt(), y + height.toInt())
+    val p2 = Point(x + (width / 2.0).toInt(), y - height.toInt())
+    val p3 = Point(x, y - (width / 2.0).toInt())
+    val p4 = Point(x - (width / 2.0).toInt(), y - height.toInt())
+    val p5 = Point(x - (width / 2.0).toInt(), y + height.toInt())
+
+    this.drawLine(p0.x, p0.y, p1.x, p1.y)
+    this.drawLine(p1.x, p1.y, p2.x, p2.y)
+    this.drawLine(p2.x, p2.y, p3.x, p3.y)
+    this.drawLine(p3.x, p3.y, p4.x, p4.y)
+    this.drawLine(p4.x, p4.y, p5.x, p5.y)
+    this.drawLine(p5.x, p5.y, p0.x, p0.y)
+
+    //this.drawLine(x -5, y -5, x + 5, y + 5)
 }
 
 
