@@ -1,21 +1,26 @@
 package com.hampstudios.toolchain
 
+import com.hampstudios.toolchain.HexagridEditor.Companion.windowHeight
+import com.hampstudios.toolchain.HexagridEditor.Companion.windowWidth
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.Point
-import java.awt.SystemColor.text
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
+import java.awt.event.*
 import javax.swing.JFrame
+import javax.swing.JPanel
+import javax.swing.Timer
+import javax.swing.WindowConstants.EXIT_ON_CLOSE
 import kotlin.math.floor
 import kotlin.math.tan
 
 
-class HexagridEditor : JFrame() {
+class HexagridEditor : JPanel(), ActionListener, MouseAdapter {
 
-    private val windowWidth = 1200
-    private val windowHeight = 800
+    companion object {
+        val windowWidth = 1200
+        val windowHeight = 800
+    }
 
     //TODO make these modifiable
     private val gridPadding = 50 // pixels
@@ -28,21 +33,10 @@ class HexagridEditor : JFrame() {
     private val hexagons = mutableSetOf<Hexagon>()
 
     init {
-        title = "Hexagrid Editor"
-        defaultCloseOperation = EXIT_ON_CLOSE
-        size = Dimension(windowWidth, windowHeight)
-        contentPane.background = Color.BLACK
-        setLocationRelativeTo(null)
+        background = Color.BLACK
 
-        addMouseMotionListener(object : MouseAdapter() {
-            override fun mousePressed(e: MouseEvent) {
-                super.mouseMoved(e)
-            }
-
-            override fun mouseMoved(e: MouseEvent) {
-                super.mouseMoved(e)
-            }
-        })
+        addMouseListener(this)
+        addMouseMotionListener(this)
 
         val gridHeight = floor((gridPadding / 2.0) * tan(Math.PI / 6)).toInt() + (gridPadding / 2.0).toInt()
 
@@ -74,8 +68,23 @@ class HexagridEditor : JFrame() {
         }
     }
 
-    override fun paint(g: Graphics?) {
-        super.paint(g)
+    override fun mouseClicked(p0: MouseEvent?) {
+        super.mouseClicked(p0)
+        println("clicked @ ${p0?.point}")
+    }
+
+    override fun mouseMoved(p0: MouseEvent?) {
+        super.mouseMoved(p0)
+        println("moved @ ${p0?.point}")
+    }
+
+    // Link frame ticks to panel paint
+    override fun actionPerformed(p0: ActionEvent?) {
+        this.repaint()
+    }
+
+    override fun paintComponent(g: Graphics?) {
+        super.paintComponent(g)
 
         g?.let { graphics ->
             // Bounding box
@@ -84,7 +93,7 @@ class HexagridEditor : JFrame() {
 
             // Dots
             graphics.color = Color.CYAN
-            hexagons.forEach { it.draw(graphics) }
+            hexagons.forEach { it.draw(graphics, this.mousePosition) }
         }
     }
 
@@ -104,18 +113,55 @@ private fun createHexagonAtPointWithWidth(x: Int, y: Int, width: Int): Hexagon {
 }
 
 data class Hexagon(val p0: Point, val p1: Point, val p2: Point, val p3: Point, val p4: Point, val p5: Point) {
-    fun draw(g: Graphics) {
+
+    // Basically, a list of vectors
+    private val segments: List<Pair<Int, Int>> = listOf(
+        Pair(p1.x - p0.x, p1.y - p0.y),
+        Pair(p2.x - p1.x, p2.y - p1.y),
+        Pair(p3.x - p2.x, p3.y - p2.y),
+        Pair(p4.x - p3.x, p4.y - p3.y),
+        Pair(p5.x - p4.x, p5.y - p4.y),
+        Pair(p0.x - p5.x, p0.y - p5.y)
+    )
+
+    private val center: Point = Point(p0.x, (p0.y + p3.y) / 2)
+
+    fun draw(g: Graphics, mousePosition: Point?) {
         g.drawLine(p0.x, p0.y, p1.x, p1.y)
         g.drawLine(p1.x, p1.y, p2.x, p2.y)
         g.drawLine(p2.x, p2.y, p3.x, p3.y)
         g.drawLine(p3.x, p3.y, p4.x, p4.y)
         g.drawLine(p4.x, p4.y, p5.x, p5.y)
         g.drawLine(p5.x, p5.y, p0.x, p0.y)
+
+        mousePosition?.let {
+            if (isWithin(mousePosition.x, mousePosition.y)) {
+                println("filling something!")
+                fill(g)
+            }
+        }
     }
 
     // TODO
     fun isWithin(x: Int, y: Int): Boolean {
-        return false
+        val midpoint = segments[0].midPoint()
+
+        return x < p1.x
+                && x > p4.x
+                && y > p3.y
+                && y < p0.y
+        /*val pointToMidpoint = Vector(midpoint.x - x, midpoint.y - y)
+        val crossZ = pointToMidpoint.first * segments[0].second - pointToMidpoint.second * segments[0].first
+
+        return segments
+            .map { Pair(it, it.midPoint().let { midpoint -> Vector(midpoint.x - x, midpoint.y - y) }) }
+            .map { (segment, centerToSegment) -> centerToSegment.first * segment.second - centerToSegment.second * segment.first }
+            .none { it < 0 }*/
+    }
+
+    fun fill(g: Graphics) {
+        // Placeholder
+        g.drawOval(center.x - 2, center.y - 2, 4, 4)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -133,8 +179,22 @@ data class Hexagon(val p0: Point, val p1: Point, val p2: Point, val p3: Point, v
     }
 }
 
+typealias Vector = Pair<Int, Int>
+
+fun Vector.midPoint(): Point {
+    return Point(this.first / 2, this.second / 2)
+}
+
 fun main(args: Array<String>) {
     println("Hexagrid Editor args: $args")
 
-    HexagridEditor().isVisible = true
+    val frame = JFrame()
+    frame.contentPane = HexagridEditor()
+    frame.isVisible = true
+    frame.title = "Hexagrid Editor"
+    frame.defaultCloseOperation = EXIT_ON_CLOSE
+    frame.size = Dimension(windowWidth, windowHeight)
+    frame.setLocationRelativeTo(null)
+
+    Timer(1000 / 30, frame.contentPane as HexagridEditor).start()
 }
