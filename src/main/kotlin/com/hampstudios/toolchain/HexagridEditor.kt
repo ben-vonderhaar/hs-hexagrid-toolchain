@@ -68,16 +68,6 @@ class HexagridEditor : JPanel(), ActionListener, MouseAdapter {
         }
     }
 
-    override fun mouseClicked(p0: MouseEvent?) {
-        super.mouseClicked(p0)
-        println("clicked @ ${p0?.point}")
-    }
-
-    override fun mouseMoved(p0: MouseEvent?) {
-        super.mouseMoved(p0)
-        println("moved @ ${p0?.point}")
-    }
-
     // Link frame ticks to panel paint
     override fun actionPerformed(p0: ActionEvent?) {
         this.repaint()
@@ -112,6 +102,10 @@ private fun createHexagonAtPointWithWidth(x: Int, y: Int, width: Int): Hexagon {
     )
 }
 
+/**
+ * p0 is bottom of hexagon, and the remainder of points are provided CCW
+ * TODO make this less cryptic
+ */
 data class Hexagon(val p0: Point, val p1: Point, val p2: Point, val p3: Point, val p4: Point, val p5: Point) {
 
     // Basically, a list of vectors
@@ -136,7 +130,6 @@ data class Hexagon(val p0: Point, val p1: Point, val p2: Point, val p3: Point, v
 
         mousePosition?.let {
             if (isWithin(mousePosition.x, mousePosition.y)) {
-                println("filling something!")
                 fill(g)
             }
         }
@@ -162,6 +155,60 @@ data class Hexagon(val p0: Point, val p1: Point, val p2: Point, val p3: Point, v
     fun fill(g: Graphics) {
         // Placeholder
         g.drawOval(center.x - 2, center.y - 2, 4, 4)
+
+        // Scanline
+        for (y in IntRange(p3.y, p0.y)) {
+
+            // Find xMin and xMax for the given scanline
+
+            // Can draw a simple rectangle for the middle of the hexagon
+            if (y <= p1.y && y >= p2.y) {
+
+                for (x in IntRange(p4.x, p2.x)) {
+                    g.drawLine(x, y, x, y)
+                }
+            }
+
+            // TODO genericize the below into "fill tri"
+
+            // Draw top triangle
+            if (y < p2.y) {
+                // Find x extents for this scanline
+
+                // Scale tri height
+                val triScale: Double = (y - p3.y).toDouble() / (p2.y - p3.y).toDouble()
+
+                // Tri from p3, [p3.x, p2.y], p2
+                val maxX = p3.x + (triScale * (p2.x - p3.x))
+
+                // Tri from p3, p4, [p3.x, p4.y]
+                // TODO use proper points
+                val minX = p3.x - (triScale * (p2.x - p3.x))
+
+                for (x in IntRange(minX.toInt(), maxX.toInt())) {
+                    g.drawLine(x, y, x, y)
+                }
+            }
+
+            // Draw bottom triangle
+            if (y > p1.y) {
+                // Find x extents for this scanline
+                // Scale tri height
+                val triScale: Double = (p0.y - y).toDouble() / (p0.y - p1.y).toDouble()
+
+                // Tri from p3, [p3.x, p2.y], p2
+                val maxX = p0.x + (triScale * (p2.x - p3.x))
+
+                // Tri from p3, p4, [p3.x, p4.y]
+                // TODO use proper points
+                val minX = p0.x - (triScale * (p2.x - p3.x))
+
+                for (x in IntRange(minX.toInt(), maxX.toInt())) {
+                    g.drawLine(x, y, x, y)
+                }
+
+            }
+        }
     }
 
     override fun equals(other: Any?): Boolean {
